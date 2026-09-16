@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Toulouse Trip Guide 2026</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel para compilar JSX no browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <style>
+    /* Esconder scrollbar mantendo a funcionalidade de scroll */
+    .scrollbar-none::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-none {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-[#0F172A] text-slate-800 dark:text-slate-100 font-sans antialiased">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // Componente auxiliar de Ícone Dinâmico para renderizar Lucide Icons
+    const Icon = ({ name, size = 20, color = 'currentColor', className = '' }) => {
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      }, [name]);
+
+      return <i data-lucide={name} style={{ width: size, height: size, color: color, display: 'inline-block' }} className={className}></i>;
+    };
+
+    // Dados Globais e Mocks
+    const TRIP_START_DATE = new Date('2026-10-01T17:00:00+01:00');
+
+    const MOCK_FLIGHTS = [
+      {
+        id: 'f1',
+        type: 'outbound',
+        airline: 'Ryanair',
+        flightNumber: 'FR 3842',
+        from: 'Lisboa (LIS)',
+        fromCode: 'LIS',
+        to: 'Toulouse (TLS)',
+        toCode: 'TLS',
+        departureTime: '17:00',
+        arrivalTime: '20:05',
+        date: '01 de Outubro, 2026',
+        status: 'Confirmado',
+        terminal: 'T1',
+        gate: 'B14'
+      },
+      {
+        id: 'f2',
+        type: 'return',
+        airline: 'Ryanair',
+        flightNumber: 'FR 3843',
+        from: 'Toulouse (TLS)',
+        fromCode: 'TLS',
+        to: 'Lisboa (LIS)',
+        toCode: 'LIS',
+        departureTime: '22:30',
+        arrivalTime: '23:35',
+        date: '04 de Outubro, 2026',
+        status: 'Confirmado',
+        terminal: 'T1',
+        gate: 'A08'
+      }
+    ];
+
+    const MOCK_HOTEL = {
+      name: 'Hotel Mercure Toulouse Centre Capitole',
+      rating: 4.5,
+      address: 'Rue Saint-Jérôme, 31000 Toulouse, França',
+      lat: 43.6047,
+      lng: 1.4460,
+      checkIn: '01 Out 2026 - 15:00',
+      checkOut: '04 Out 2026 - 12:00',
+      confirmationCode: 'MERC-TLS-2026-99A',
+      amenities: ['Wi-Fi Grátis', 'Pequeno-almoço Incluído', 'Localização Central', 'Ar Condicionado'],
+      phone: '+33 5 61 23 23 20'
+    };
+
+    const MOCK_MEETING_POINT = {
+      title: 'Ponto de Encontro - Excursões Albi & Carcassonne',
+      address: '29 Allées Jean Jaurès, 31000 Toulouse',
+      lat: 43.6061,
+      lng: 1.4502,
+      note: 'Apresentar no local 15 minutos antes da hora agendada (08:15 / 08:30).'
+    };
+
+    const MOCK_ITINERARY = [
+      { id: 'it-1', day: 1, time: '17:00 - 20:05', category: 'flight', title: 'Voo de Partida Lisboa ➔ Toulouse', description: 'Voo Ryanair FR 3842. Apresentação no aeroporto Humberto Delgado até às 15:00.', location: 'Aeroporto de Lisboa (LIS)', lat: 38.7756, lng: -9.1353, duration: '2h 05m', highlight: true },
+      { id: 'it-2', day: 1, time: '20:30 - 21:15', category: 'transport', title: 'Navette Express Aeroporto ➔ Centro', description: 'Apanhar o autocarro Navette Express com destino à Estação Matabiau ou saída em Jean Jaurès.', location: 'Aeroporto Toulouse-Blagnac (TLS)', lat: 43.6291, lng: 1.3638, duration: '35 min' },
+      { id: 'it-3', day: 1, time: '21:30', category: 'transport', title: 'Check-in no Hotel Mercure', description: 'Instalação nos quartos, relaxamento e preparação para a primeira noite na Ville Rose.', location: 'Hotel Mercure Capitole', lat: 43.6047, lng: 1.4460, duration: '30 min' },
+      { id: 'it-4', day: 1, time: '22:00', category: 'food', title: 'Ceia de Boas-Vindas na Place du Capitole', description: 'Primeira caminhada noturna pela praça iluminada e jantar leve nos bistrôs locais.', location: 'Place du Capitole', lat: 43.6044, lng: 1.4442, duration: '1h 30m' },
+      { id: 'it-5', day: 2, time: '08:30', category: 'transport', title: 'Partida da Excursão para Carcassonne', description: 'Ponto de encontro obrigatório às 08:15 no endereço 29 Allées Jean Jaurès.', location: '29 Allées Jean Jaurès', lat: 43.6061, lng: 1.4502, duration: '1h 15m viagem', highlight: true },
+      { id: 'it-6', day: 2, time: '09:45 - 13:00', category: 'monument', title: 'Exploração da Cité de Carcassonne', description: 'Passeio pelas muralhas duplas medievais, Castelo Comtal e Basílica de Saint-Nazaire.', location: 'Cité de Carcassonne', lat: 43.2064, lng: 2.3656, duration: '3h 15m' },
+      { id: 'it-7', day: 2, time: '13:00 - 15:00', category: 'food', title: 'Almoço: Degustação do Famoso Cassoulet', description: 'Provar o autêntico Cassoulet de Carcassonne com feijão branco e confit de pato num restaurante típico.', location: 'Le Troubadour - Carcassonne', lat: 43.2069, lng: 2.3650, duration: '2h' },
+      { id: 'it-8', day: 2, time: '17:30 - 19:30', category: 'activity', title: 'Passeio ao Pôr do Sol no Rio Garonne', description: 'Regresso a Toulouse. Caminhada relaxante junto ao Pont Neuf e Quai de la Daurade.', location: 'Pont Neuf, Toulouse', lat: 43.6006, lng: 1.4397, duration: '2h' },
+      { id: 'it-9', day: 2, time: '20:30', category: 'food', title: 'Jantar Histórico no Le Bibent', description: 'Gastronomia sofisticada em atmosfera Belle Époque na Place du Capitole.', location: 'Le Bibent', lat: 43.6041, lng: 1.4438, duration: '2h' },
+      { id: 'it-10', day: 3, time: '08:15', category: 'transport', title: 'Partida da Excursão Albi & Cordes-sur-Ciel', description: 'Embarque no autocarro de turismo no ponto de encontro nas Allées Jean Jaurès.', location: '29 Allées Jean Jaurès', lat: 43.6061, lng: 1.4502, duration: '1h viagem', highlight: true },
+      { id: 'it-11', day: 3, time: '09:30 - 12:30', category: 'monument', title: 'Visita à Catedral Sainte-Cécile em Albi', description: 'A maior catedral em tijolo do mundo, Palais de la Berbie e Museu Toulouse-Lautrec.', location: 'Catedral Sainte-Cécile, Albi', lat: 43.9284, lng: 2.1432, duration: '3h' },
+      { id: 'it-12', day: 3, time: '14:30 - 17:00', category: 'monument', title: 'Vila Medieval de Cordes-sur-Ciel', description: 'Passeio pelas vielas íngremes de uma das aldeias medievais mais bonitas da França.', location: 'Cordes-sur-Ciel', lat: 44.0633, lng: 2.1386, duration: '2h 30m' },
+      { id: 'it-13', day: 3, time: '20:30', category: 'food', title: 'Jantar de Tapas no L\'Alimentation', description: 'Ambiente moderno e descontraído na Place Saint-Georges com tábuas de queijo e enchidos locais.', location: 'L\'Alimentation', lat: 43.6028, lng: 1.4475, duration: '2h' },
+      { id: 'it-14', day: 4, time: '09:00 - 11:00', category: 'food', title: 'Marché Victor Hugo: Experiência Gastronómica', description: 'Visita ao mais prestigiado mercado coberto de Toulouse para provar queijos, foie gras e pastelaria.', location: 'Marché Victor Hugo', lat: 43.6053, lng: 1.4453, duration: '2h' },
+      { id: 'it-15', day: 4, time: '11:30 - 13:00', category: 'monument', title: 'Basílica de Saint-Sernin', description: 'Jóia da arte românica no Caminho de Santiago de Compostela (Património UNESCO).', location: 'Basílica de Saint-Sernin', lat: 43.6083, lng: 1.4419, duration: '1h 30m' },
+      { id: 'it-16', day: 4, time: '13:30 - 15:30', category: 'food', title: 'Almoço de Despedida na Chez Émile', description: 'Refeição num dos restaurantes mais icónicos da Place Saint-Georges.', location: 'Chez Émile', lat: 43.6025, lng: 1.4470, duration: '2h' },
+      { id: 'it-17', day: 4, time: '16:00 - 18:00', category: 'activity', title: 'Jardin Japonais & Canal du Midi', description: 'Passeio relaxante no Jardim Japonês do Compans-Caffarelli e ao longo do histórico Canal du Midi.', location: 'Jardin Japonais Pierre Baudis', lat: 43.6111, lng: 1.4328, duration: '2h' },
+      { id: 'it-18', day: 4, time: '19:30', category: 'transport', title: 'Transfer de Navette para o Aeroporto TLS', description: 'Recolha da bagagem no hotel e regresso de Navette para o aeroporto Toulouse-Blagnac.', location: 'Hotel Mercure ➔ TLS Airport', lat: 43.6291, lng: 1.3638, duration: '45 min' },
+      { id: 'it-19', day: 4, time: '22:30 - 23:35', category: 'flight', title: 'Voo de Regresso Toulouse ➔ Lisboa', description: 'Voo Ryanair FR 3843. Chegada prevista a Lisboa às 23:35.', location: 'Aeroporto Toulouse-Blagnac (TLS)', lat: 43.6291, lng: 1.3638, duration: '2h 05m', highlight: true }
+    ];
+
+    const MOCK_POIS = [
+      { id: 'poi-1', name: 'Hotel Mercure Toulouse Capitole', category: 'hotels', lat: 43.6047, lng: 1.4460, description: 'Hotel 4 estrelas localizado no coração histórico da cidade, a passos do Capitólio.', rating: 4.8, address: 'Rue Saint-Jérôme, 31000 Toulouse', tags: ['Alojamento', 'Centro Histórico', 'Pequeno-Almoço'], image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80' },
+      { id: 'poi-2', name: 'Ponto de Encontro Excursões (Bus)', category: 'transport', lat: 43.6061, lng: 1.4502, description: 'Local exato de partida dos autocarros para as excursões de Carcassonne, Albi e Cordes-sur-Ciel.', rating: 4.9, address: '29 Allées Jean Jaurès, 31000 Toulouse', tags: ['Embarque', 'Excursões', 'Autocarro'], image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=800&q=80' },
+      { id: 'poi-3', name: 'Aeroporto Toulouse-Blagnac (TLS)', category: 'transport', lat: 43.6291, lng: 1.3638, description: 'Aeroporto internacional ligado ao centro por Navette Express e elétrico T2.', rating: 4.5, address: '31700 Blagnac, França', tags: ['Aeroporto', 'Voo Lisboa', 'Navette'], image: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=800&q=80' },
+      { id: 'poi-4', name: 'Cité de Carcassonne', category: 'monuments', lat: 43.2064, lng: 2.3656, description: 'Espectacular fortificação medieval com 52 torres, Património Mundial da UNESCO.', rating: 4.9, address: '11000 Carcassonne', tags: ['UNESCO', 'Castelo Medieval', 'Excursão'], image: 'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?auto=format&fit=crop&w=800&q=80' },
+      { id: 'poi-5', name: 'Catedral Sainte-Cécile (Albi)', category: 'monuments', lat: 43.9284, lng: 2.1432, description: 'Obra-prima do gótico meridional, impressionante estrutura em tijolo rosa.', rating: 4.9, address: '5 Place Sainte-Cécile, 81000 Albi', tags: ['Arte Gótica', 'UNESCO', 'Albi'], image: 'https://images.unsplash.com/photo-1548625361-1830607248f2?auto=format&fit=crop&w=800&q=80' },
+      { id: 'poi-6', name: 'Cordes-sur-Ciel', category: 'monuments', lat: 44.0633, lng: 2.1386, description: 'Aldeia medieval suspensa nas nuvens com arquitetura gótica e artesanato requintado.', rating: 4.8, address: '81170 Cordes-sur-Ciel', tags: ['Aldeia Histórica', 'Panorama', 'Excursão'], image: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=800&q=80' },
+      { id: 'poi-7', name: 'Marché Victor Hugo', category: 'restaurants', lat: 43.6053, lng: 1.4453, description: 'O verdadeiro coração gastronómico de Toulouse. Restaurantes frescos no 1º andar.', rating: 4.7, address: 'Place Victor Hugo, 31000 Toulouse', tags: ['Mercado Local', 'Queijos', 'Vinhos', 'Almoço'], image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80' },
+      { id: 'poi-8', name: 'Place du Capitole', category: 'monuments', lat: 43.6044, lng: 1.4442, description: 'A praça mais célebre de Toulouse com a impressionante fachada neoclássica da Câmara Municipal.', rating: 4.9, address: 'Place du Capitole, 31000 Toulouse', tags: ['Praça Principal', 'Fotografia', 'Bistrôs'], image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=800&q=80' }
+    ];
+
+    const MOCK_TRANSPORTS = [
+      { mode: 'Navette Express Aeroporto', duration: '20 a 25 min', cost: '€ 9.20 por pessoa', frequency: 'Cada 15 minutos', pros: 'Direto do aeroporto para a Estação Matabiau e Jean Jaurès com ar-condicionado e Wi-Fi.', icon: 'bus' },
+      { mode: 'Uber / Táxi Privado', duration: '15 a 20 min', cost: '€ 25.00 - € 35.00', frequency: 'Disponível 24/7', pros: 'Conforto total até à porta do Hotel Mercure Capitole com bagagens pesadas.', icon: 'navigation' },
+      { mode: 'Metro Tisséo (Linhas A e B)', duration: 'Incomparável no centro', cost: '€ 1.80 (Bilhete Único) / € 6.30 (Passe 1 Dia)', frequency: 'Cada 2 a 4 minutos', pros: 'Metro automático ultra-rápido, perfeito para deslocações dentro de Toulouse.', icon: 'compass' }
+    ];
+
+    const MOCK_PHRASES = [
+      { french: "Une carafe d'eau, s'il vous plaît", phonetic: "Iun ka-raf do, sil vu ple", portuguese: "Um jarro de água (da torneira/grátis), por favor", context: "Pedir água potável gratuita sem pagar garrafa de água nos restaurantes." },
+      { french: "L'addition, s'il vous plaît", phonetic: "La-di-si-õ, sil vu ple", portuguese: "A conta, por favor", context: "Para solicitar a conta ao garçom no final da refeição." },
+      { french: "Où se trouve l'arrêt de bus?", phonetic: "U su truv la-re du bus?", portuguese: "Onde fica a paragem de autocarro?", context: "Muito útil ao procurar a Navette do aeroporto ou ponto de encontro." },
+      { french: "Bonjour! Deux cafés expresso, s'il vous plaît", phonetic: "Bõ-jur! Dø ka-fe es-pres-o, sil vu ple", portuguese: "Bom dia! Dois cafés expressos, por favor", context: "Para pedir café num bistrô na Place du Capitole." }
+    ];
+
+    const openExternalMap = (lat, lng, label = 'Localização') => {
+      const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    };
+
+    // Componentes da Aplicação
+    const TripHeader = ({ theme, toggleTheme }) => {
+      const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+      useEffect(() => {
+        const calculateTime = () => {
+          const now = new Date();
+          const difference = TRIP_START_DATE.getTime() - now.getTime();
+          if (difference > 0) {
+            setTimeLeft({
+              days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+              hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+              minutes: Math.floor((difference / 1000 / 60) % 60),
+              seconds: Math.floor((difference / 1000) % 60)
+            });
+          } else {
+            setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+          }
+        };
+        calculateTime();
+        const interval = setInterval(calculateTime, 1000);
+        return () => clearInterval(interval);
+      }, []);
+
+      return (
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#E05A47] via-[#F97316] to-[#8B5CF6] p-6 md:p-8 text-white shadow-2xl mb-8">
+          <div className="absolute -right-10 -top-10 w-60 h-60 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -left-10 -bottom-10 w-60 h-60 bg-black/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-3 py-1 bg-white/20 backdrop-blur-md text-xs font-semibold uppercase tracking-wider rounded-full border border-white/30">
+                  Viagem Oficial 2026
+                </span>
+                <span className="px-3 py-1 bg-emerald-500/80 backdrop-blur-md text-xs font-semibold rounded-full flex items-center gap-1">
+                  <Icon name="check-circle-2" size={12} color="#FFFFFF" /> Reservado
+                </span>
+              </div>
+              <h1 className="text-3xl md:text-5xl font-black tracking-tight drop-shadow-sm">
+                Toulouse Trip Guide
+              </h1>
+              <p className="text-white/90 text-sm md:text-base mt-1 flex items-center gap-2">
+                <Icon name="calendar" size={16} color="#FFFFFF" /> 01 a 04 de Outubro de 2026 &bull; Ville Rose & Excursões
+              </p>
+            </div>
+            <div className="w-full md:w-auto bg-black/25 backdrop-blur-md border border-white/20 p-4 rounded-2xl flex flex-col items-center min-w-[280px]">
+              <span className="text-xs uppercase font-bold tracking-widest text-white/80 mb-2 flex items-center gap-1">
+                <Icon name="clock" size={14} color="#F97316" /> Contagem Decrescente
+              </span>
+              <div className="grid grid-cols-4 gap-2 text-center w-full">
+                <div className="bg-white/10 p-2 rounded-xl">
+                  <span className="text-2xl font-black block">{timeLeft.days}</span>
+                  <span className="text-[10px] uppercase text-white/70">Dias</span>
+                </div>
+                <div className="bg-white/10 p-2 rounded-xl">
+                  <span className="text-2xl font-black block">{timeLeft.hours}</span>
+                  <span className="text-[10px] uppercase text-white/70">Horas</span>
+                </div>
+                <div className="bg-white/10 p-2 rounded-xl">
+                  <span className="text-2xl font-black block">{timeLeft.minutes}</span>
+                  <span className="text-[10px] uppercase text-white/70">Min</span>
+                </div>
+                <div className="bg-white/10 p-2 rounded-xl">
+                  <span className="text-2xl font-black block">{timeLeft.seconds}</span>
+                  <span className="text-[10px] uppercase text-white/70">Seg</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const FlightCard = ({ flight }) => {
+      const isOutbound = flight.type === 'outbound';
+      return (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-lg border border-slate-100 dark:border-slate-700/60 transition-all hover:shadow-xl">
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center">
+                <Icon name="plane" color="#0284C7" size={22} className={isOutbound ? 'rotate-45' : '-rotate-45'} />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 font-sans">
+                  {isOutbound ? 'Voo de Ida' : 'Voo de Regresso'}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {flight.airline} &bull; <span className="font-semibold text-slate-700 dark:text-slate-300">{flight.flightNumber}</span>
+                </p>
+              </div>
+            </div>
+            <span className="px-3 py-1 bg-sky-50 dark:bg-sky-900/50 text-[#0284C7] text-xs font-bold rounded-full border border-sky-200 dark:border-sky-800">
+              {flight.status}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 items-center text-center my-2">
+            <div className="text-left">
+              <span className="text-2xl font-black text-slate-800 dark:text-white block">{flight.fromCode}</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{flight.from}</span>
+              <span className="text-sm font-bold text-[#0284C7] block mt-1">{flight.departureTime}</span>
+            </div>
+            <div className="flex flex-col items-center px-2">
+              <span className="text-[10px] text-slate-400 font-semibold mb-1">2h 05m</span>
+              <div className="w-full flex items-center">
+                <div className="w-2 h-2 rounded-full bg-[#0284C7]" />
+                <div className="flex-1 h-[2px] bg-sky-200 dark:bg-sky-800 border-dashed" />
+                <Icon name="plane" size={14} color="#0284C7" className="rotate-90 mx-1" />
+                <div className="flex-1 h-[2px] bg-sky-200 dark:bg-sky-800 border-dashed" />
+                <div className="w-2 h-2 rounded-full bg-[#0284C7]" />
+              </div>
+              <span className="text-[10px] text-slate-400 mt-1">Direto</span>
+            </div>
+            <div className="text-right">
+              <span className="text-2xl font-black text-slate-800 dark:text-white block">{flight.toCode}</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{flight.to}</span>
+              <span className="text-sm font-bold text-[#0284C7] block mt-1">{flight.arrivalTime}</span>
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <span className="flex items-center gap-1">
+              <Icon name="calendar" size={12} color="#64748B" /> {flight.date}
+            </span>
+            <div className="flex gap-3">
+              {flight.terminal && <span>Terminal: <strong className="text-slate-700 dark:text-slate-200">{flight.terminal}</strong></span>}
+              {flight.gate && <span>Portão: <strong className="text-slate-700 dark:text-slate-200">{flight.gate}</strong></span>}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const TimelineItem = ({ item, isLast }) => {
+      const getCategoryStyles = (category) => {
+        switch (category) {
+          case 'flight':
+            return { bg: 'bg-sky-100 dark:bg-sky-900/40', text: 'text-[#0284C7]', border: 'border-sky-200', icon: 'plane' };
+          case 'transport':
+            return { bg: 'bg-amber-100 dark:bg-amber-900/40', text: 'text-[#F97316]', border: 'border-amber-200', icon: 'bus' };
+          case 'monument':
+            return { bg: 'bg-purple-100 dark:bg-purple-900/40', text: 'text-[#8B5CF6]', border: 'border-purple-200', icon: 'landmark' };
+          case 'food':
+            return { bg: 'bg-emerald-100 dark:bg-emerald-900/40', text: 'text-[#10B981]', border: 'border-emerald-200', icon: 'utensils' };
+          default:
+            return { bg: 'bg-rose-100 dark:bg-rose-900/40', text: 'text-[#E05A47]', border: 'border-rose-200', icon: 'compass' };
+        }
+      };
+
+      const style = getCategoryStyles(item.category);
+
+      return (
+        <div className="relative flex gap-4 md:gap-6 pb-8">
+          {!isLast && (
+            <div className="absolute left-5 top-10 bottom-0 w-[2px] bg-slate-200 dark:bg-slate-700" />
+          )}
+          <div className={`relative z-10 w-10 h-10 rounded-2xl ${style.bg} flex items-center justify-center shrink-0 shadow-md border ${style.border}`}>
+            <Icon name={style.icon} size={20} className={style.text} />
+          </div>
+          <div className={`flex-1 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border ${item.highlight ? 'border-2 border-[#E05A47]' : 'border-slate-100 dark:border-slate-700/80'} transition-all hover:shadow-md`}>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                <Icon name="clock" size={12} color="#E05A47" /> {item.time}
+              </span>
+              <span className="text-xs font-medium text-slate-400 flex items-center gap-1">
+                Duração: {item.duration}
+              </span>
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">
+              {item.title}
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
+              {item.description}
+            </p>
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700/60">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1 truncate max-w-[200px] md:max-w-xs">
+                <Icon name="map-pin" size={14} color="#E05A47" /> {item.location}
+              </span>
+              <button
+                onClick={() => openExternalMap(item.lat, item.lng, item.title)}
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-[#E05A47] text-xs font-bold rounded-xl transition-colors flex items-center gap-1"
+              >
+                <Icon name="navigation" size={12} color="#E05A47" /> GPS Nav
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const LocationCard = ({ poi, onSelect }) => {
+      return (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-md border border-slate-100 dark:border-slate-700/80 flex flex-col justify-between hover:shadow-lg transition-all">
+          <div className="relative h-40 w-full overflow-hidden">
+            <img src={poi.image} alt={poi.name} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+            <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-amber-300 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+              ★ {poi.rating}
+            </div>
+            <div className="absolute bottom-3 left-3 flex flex-wrap gap-1">
+              {poi.tags.map((tag, idx) => (
+                <span key={idx} className="bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="p-4 flex-1 flex flex-col justify-between">
+            <div>
+              <h3 className="font-bold text-base text-slate-800 dark:text-white mb-1">{poi.name}</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-3">{poi.description}</p>
+              <p className="text-[11px] text-slate-400 flex items-center gap-1 mb-4">
+                <Icon name="map-pin" size={12} color="#E05A47" /> {poi.address}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {onSelect && (
+                <button
+                  onClick={() => onSelect(poi)}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white text-xs font-bold rounded-xl transition-colors"
+                >
+                  Ver Detalhes
+                </button>
+              )}
+              <button
+                onClick={() => openExternalMap(poi.lat, poi.lng, poi.name)}
+                className="flex-1 py-2 bg-[#E05A47] hover:bg-[#c94b3a] text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1"
+              >
+                <Icon name="navigation" size={12} color="#FFFFFF" /> Abrir no Maps
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const MapViewComponent = () => {
+      const [selectedCategory, setSelectedCategory] = useState('all');
+      const [activePoi, setActivePoi] = useState(MOCK_POIS[0]);
+
+      const filteredPois = useMemo(() => {
+        if (selectedCategory === 'all') return MOCK_POIS;
+        return MOCK_POIS.filter(p => p.category === selectedCategory);
+      }, [selectedCategory]);
+
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+            {[
+              { id: 'all', label: 'Tudo', icon: 'compass' },
+              { id: 'monuments', label: 'Monumentos', icon: 'landmark' },
+              { id: 'restaurants', label: 'Restaurantes', icon: 'utensils' },
+              { id: 'transport', label: 'Transportes', icon: 'bus' },
+              { id: 'hotels', label: 'Hotéis', icon: 'hotel' },
+            ].map((cat) => {
+              const isActive = selectedCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
+                    isActive
+                      ? 'bg-[#E05A47] text-white shadow-md'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <Icon name={cat.icon} size={14} color={isActive ? '#FFFFFF' : '#E05A47'} />
+                  {cat.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="relative w-full h-[360px] md:h-[420px] rounded-3xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-700 bg-slate-900 flex flex-col justify-between p-6">
+            <div className="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px] opacity-40 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-900/60 pointer-events-none" />
+            <div className="relative z-10 flex justify-between items-center">
+              <div className="bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-slate-700 text-xs text-white font-medium flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                Mapa Interativo Toulouse & Ocratânia
+              </div>
+              <button
+                onClick={() => activePoi && openExternalMap(activePoi.lat, activePoi.lng, activePoi.name)}
+                className="bg-white/90 hover:bg-white text-slate-900 px-3 py-1.5 rounded-2xl text-xs font-bold shadow-lg transition-all flex items-center gap-1"
+              >
+                <Icon name="external-link" size={12} color="#0F172A" /> Abrir no Google Maps
+              </button>
+            </div>
+
+            <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-3 my-auto">
+              {filteredPois.map((poi) => {
+                const isSelected = activePoi?.id === poi.id;
+                return (
+                  <button
+                    key={poi.id}
+                    onClick={() => setActivePoi(poi)}
+                    className={`p-3 rounded-2xl text-left transition-all backdrop-blur-md flex items-center gap-3 border ${
+                      isSelected
+                        ? 'bg-[#E05A47] text-white border-white scale-105 shadow-xl'
+                        : 'bg-slate-800/80 text-slate-200 border-slate-700 hover:bg-slate-700/80'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-xl shrink-0 ${isSelected ? 'bg-white/20' : 'bg-slate-700'}`}>
+                      <Icon name="map-pin" size={16} color={isSelected ? '#FFFFFF' : '#E05A47'} />
+                    </div>
+                    <div className="overflow-hidden">
+                      <h4 className="text-xs font-bold truncate">{poi.name}</h4>
+                      <p className="text-[10px] opacity-80 capitalize">{poi.category}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {activePoi && (
+              <div className="relative z-10 bg-slate-900/90 backdrop-blur-md border border-slate-700 p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <img src={activePoi.image} alt={activePoi.name} className="w-12 h-12 rounded-xl object-cover" />
+                  <div>
+                    <h4 className="text-sm font-bold text-white">{activePoi.name}</h4>
+                    <p className="text-xs text-slate-400">{activePoi.address}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => openExternalMap(activePoi.lat, activePoi.lng, activePoi.name)}
+                  className="w-full md:w-auto px-4 py-2 bg-[#E05A47] hover:bg-[#c94b3a] text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1"
+                >
+                  <Icon name="navigation" size={14} color="#FFFFFF" /> NAVEGAR GPS ({activePoi.lat.toFixed(2)}, {activePoi.lng.toFixed(2)})
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
+            {filteredPois.map((poi) => (
+              <LocationCard key={poi.id} poi={poi} onSelect={(p) => setActivePoi(p)} />
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    const AIChatBubble = ({ message }) => {
+      const isUser = message.sender === 'user';
+      return (
+        <div className={`flex gap-3 mb-4 ${isUser ? 'justify-end' : 'justify-start'}`}>
+          {!isUser && (
+            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-[#E05A47] to-[#F97316] flex items-center justify-center text-white shrink-0 shadow-md">
+              <Icon name="sparkles" size={18} color="#FFFFFF" />
+            </div>
+          )}
+          <div
+            className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed ${
+              isUser
+                ? 'bg-[#E05A47] text-white rounded-br-none shadow-md'
+                : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-bl-none border border-slate-100 dark:border-slate-700 shadow-sm'
+            }`}
+          >
+            <p className="whitespace-pre-line">{message.text}</p>
+            <span className={`text-[10px] block mt-2 text-right ${isUser ? 'text-white/70' : 'text-slate-400'}`}>
+              {message.timestamp}
+            </span>
+          </div>
+          {isUser && (
+            <div className="w-9 h-9 rounded-2xl bg-slate-700 flex items-center justify-center text-white shrink-0 shadow-md">
+              <Icon name="user" size={18} color="#FFFFFF" />
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const AIConciergeTab = () => {
+      const [messages, setMessages] = useState([
+        {
+          id: 'm1',
+          sender: 'ai',
+          text: 'Bonjour! Sou o teu Concierge Virtual de Toulouse para a viagem de 01 a 04 de Outubro de 2026. Como posso ajudar com os voos, restaurante de Cassoulet, excursão a Carcassonne ou dicas de transporte?',
+          timestamp: 'Agora'
+        }
+      ]);
+      const [inputText, setInputText] = useState('');
+      const [isTyping, setIsTyping] = useState(false);
+
+      const quickPrompts = ['Navette Aeroporto', 'Onde comer Cassoulet?', 'Pedir água grátis', 'Ponto de Encontro Excursões'];
+
+      const handleSend = (textToSend) => {
+        const query = textToSend || inputText;
+        if (!query.trim()) return;
+
+        const userMsg = {
+          id: Date.now().toString(),
+          sender: 'user',
+          text: query,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+
+        setMessages((prev) => [...prev, userMsg]);
+        if (!textToSend) setInputText('');
+        setIsTyping(true);
+
+        setTimeout(() => {
+          let responseText = 'Desculpe, não entendi perfeitamente. Pode perguntar sobre transportes, Cassoulet, ou horários de voo!';
+          const lower = query.toLowerCase();
+
+          if (lower.includes('navette') || lower.includes('aeroporto')) {
+            responseText = '🚌 **Navette Aeroporto Toulouse-Blagnac:**\nO autocarro sai a cada 15 minutos do aeroporto em direção à Estação Matabiau e pára nas Allées Jean Jaurès. Custa €9,20 por pessoa e demoras cerca de 25 minutos.';
+          } else if (lower.includes('cassoulet') || lower.includes('comer')) {
+            responseText = '🍲 **Onde comer o melhor Cassoulet:**\n1. **Chez Émile** (Place Saint-Georges) - Clássico e tradicional.\n2. **Le Troubadour** (Carcassonne) - Excelente na excursão do Dia 2.\n3. **L\'Alimentation** - Para tapas e gastronomia contemporânea.';
+          } else if (lower.includes('água') || lower.includes('pedir')) {
+            responseText = '💧 **Dica de Ouro em França:**\nDiga *"Une carafe d\'eau, s\'il vous plaît"* nos restaurantes para receber água potável da torneira fresca e 100% gratuita!';
+          } else if (lower.includes('encontro') || lower.includes('excursão') || lower.includes('ponto')) {
+            responseText = '📍 **Ponto de Encontro Excursões:**\nTodas as partidas para Carcassonne (Dia 2) e Albi/Cordes (Dia 3) saem do endereço: **29 Allées Jean Jaurès, 31000 Toulouse**. Comparecer 15m antes (08:15)!';
+          }
+
+          const aiMsg = {
+            id: (Date.now() + 1).toString(),
+            sender: 'ai',
+            text: responseText,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          };
+
+          setMessages((prev) => [...prev, aiMsg]);
+          setIsTyping(false);
+        }, 800);
+      };
+
+      return (
+        <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700/80 flex flex-col h-[600px] overflow-hidden">
+          <div className="p-5 bg-gradient-to-r from-[#E05A47] to-[#F97316] text-white flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                <Icon name="sparkles" size={20} color="#FFFFFF" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base">Toulouse AI Concierge</h3>
+                <p className="text-xs text-white/80">Assistente Inteligente de Viagem 2026</p>
+              </div>
+            </div>
+            <span className="text-xs bg-white/20 px-3 py-1 rounded-full font-semibold">Online</span>
+          </div>
+
+          <div className="flex-1 p-5 overflow-y-auto bg-slate-50 dark:bg-slate-900/50">
+            {messages.map((msg) => (
+              <AIChatBubble key={msg.id} message={msg} />
+            ))}
+            {isTyping && (
+              <div className="flex items-center gap-2 text-slate-400 text-xs italic mb-4">
+                <Icon name="sparkles" size={14} className="animate-spin text-[#E05A47]" /> Concierge a escrever...
+              </div>
+            )}
+          </div>
+
+          <div className="px-5 py-2 bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex gap-2 overflow-x-auto">
+            {quickPrompts.map((prompt, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSend(prompt)}
+                className="px-3 py-1 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-600 hover:bg-[#E05A47] hover:text-white transition-all whitespace-nowrap shadow-sm"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-4 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 flex items-center gap-2">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              placeholder="Escreve a tua dúvida sobre Toulouse..."
+              className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white text-sm rounded-2xl outline-none focus:ring-2 focus:ring-[#E05A47]"
+            />
+            <button
+              onClick={() => handleSend()}
+              className="w-12 h-12 bg-[#E05A47] hover:bg-[#c94b3a] text-white rounded-2xl flex items-center justify-center shadow-lg transition-colors shrink-0"
+            >
+              <Icon name="send" size={18} color="#FFFFFF" />
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    const LocalGuideTab = () => {
+      const [copiedIdx, setCopiedIdx] = useState(null);
+
+      const handleCopy = (text, idx) => {
+        navigator.clipboard.writeText(text);
+        setCopiedIdx(idx);
+        setTimeout(() => setCopiedIdx(null), 2000);
+      };
+
+      return (
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+              <Icon name="bus" size={22} color="#0284C7" /> Guia de Transportes Locais
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {MOCK_TRANSPORTS.map((t, idx) => (
+                <div key={idx} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-md border border-slate-100 dark:border-slate-700/80 flex flex-col justify-between">
+                  <div>
+                    <div className="w-10 h-10 rounded-xl bg-sky-100 dark:bg-sky-900/40 text-[#0284C7] flex items-center justify-center mb-3">
+                      <Icon name={t.icon} size={20} color="#0284C7" />
+                    </div>
+                    <h3 className="font-bold text-base text-slate-800 dark:text-white mb-1">{t.mode}</h3>
+                    <p className="text-xs text-[#0284C7] font-bold mb-2">{t.cost} &bull; {t.duration}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-4">{t.pros}</p>
+                  </div>
+                  <span className="text-[11px] text-slate-400 bg-slate-100 dark:bg-slate-700/50 p-2 rounded-xl text-center font-medium">
+                    Frequência: {t.frequency}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+              <Icon name="book-open" size={22} color="#10B981" /> Expressões Úteis em Francês
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {MOCK_PHRASES.map((card, idx) => (
+                <div key={idx} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-md border border-slate-100 dark:border-slate-700/80 flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <span className="text-lg font-bold text-[#10B981] block mb-0.5">"{card.french}"</span>
+                    <span className="text-xs text-slate-400 italic block mb-2">Pronúncia: {card.phonetic}</span>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">{card.portuguese}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{card.context}</p>
+                  </div>
+                  <button
+                    onClick={() => handleCopy(card.french, idx)}
+                    className="p-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl text-slate-600 dark:text-slate-200 transition-colors shrink-0"
+                    title="Copiar texto"
+                  >
+                    {copiedIdx === idx ? <Icon name="check" size={18} color="#10B981" /> : <Icon name="copy" size={18} color="#64748B" />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [selectedDay, setSelectedDay] = useState(1);
+      const [theme, setTheme] = useState('light');
+
+      const toggleTheme = () => {
+        setTheme(prev => prev === 'light' ? 'dark' : 'light');
+      };
+
+      const filteredItinerary = useMemo(() => {
+        return MOCK_ITINERARY.filter(item => item.day === selectedDay);
+      }, [selectedDay]);
+
+      return (
+        <div className={theme === 'dark' ? 'dark' : ''}>
+          <div className="min-h-screen bg-slate-50 dark:bg-[#0F172A] text-slate-800 dark:text-slate-100 font-sans transition-colors duration-300 pb-24 md:pb-12">
+            <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
+                  <div className="w-10 h-10 rounded-2xl bg-[#E05A47] flex items-center justify-center text-white font-black shadow-lg">
+                    TL
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-white block leading-none">
+                      TOULOUSE 2026
+                    </span>
+                    <span className="text-[10px] text-[#E05A47] font-bold tracking-widest uppercase">Trip Guide</span>
+                  </div>
+                </div>
+
+                <nav className="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  {[
+                    { id: 'dashboard', label: 'Dashboard', icon: 'calendar' },
+                    { id: 'itinerary', label: 'Itinerário', icon: 'clock' },
+                    { id: 'map', label: 'Mapa & POIs', icon: 'map-pin' },
+                    { id: 'concierge', label: 'AI Concierge', icon: 'sparkles' },
+                    { id: 'guide', label: 'Guia Local', icon: 'book-open' },
+                  ].map((tab) => {
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                          isActive
+                            ? 'bg-[#E05A47] text-white shadow-md'
+                            : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <Icon name={tab.icon} size={15} color={isActive ? '#FFFFFF' : '#E05A47'} />
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+
+                <button
+                  onClick={toggleTheme}
+                  className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                >
+                  {theme === 'light' ? <Icon name="moon" size={18} color="#0F172A" /> : <Icon name="sun" size={18} color="#F97316" />}
+                </button>
+              </div>
+            </header>
+
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+              <TripHeader theme={theme} toggleTheme={toggleTheme} />
+
+              {activeTab === 'dashboard' && (
+                <div className="space-y-8">
+                  <div className="bg-gradient-to-r from-amber-500 to-[#F97316] p-5 rounded-2xl text-white shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                        <Icon name="shield-alert" size={28} color="#FFFFFF" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-base">{MOCK_MEETING_POINT.title}</h3>
+                        <p className="text-xs text-white/90">{MOCK_MEETING_POINT.address} &bull; {MOCK_MEETING_POINT.note}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => openExternalMap(MOCK_MEETING_POINT.lat, MOCK_MEETING_POINT.lng, MOCK_MEETING_POINT.title)}
+                      className="w-full md:w-auto px-4 py-2.5 bg-white text-[#F97316] font-bold text-xs rounded-xl shadow-md hover:bg-slate-100 transition-colors flex items-center justify-center gap-1 shrink-0"
+                    >
+                      <Icon name="navigation" size={14} color="#F97316" /> Rota para o Encontro
+                    </button>
+                  </div>
+
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                      <Icon name="plane" size={22} color="#0284C7" /> Voos Reservados (Ryanair)
+                    </h2>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {MOCK_FLIGHTS.map((flight) => (
+                        <FlightCard key={flight.id} flight={flight} />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                      <Icon name="hotel" size={22} color="#E05A47" /> Alojamento Principal
+                    </h2>
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-lg border border-slate-100 dark:border-slate-700 flex flex-col lg:flex-row justify-between gap-6">
+                      <div className="space-y-3 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-1 bg-rose-100 dark:bg-rose-900/40 text-[#E05A47] text-xs font-extrabold rounded-full">
+                            Hotel 4 Estrelas
+                          </span>
+                          <span className="text-xs font-bold text-amber-500">★ {MOCK_HOTEL.rating} / 5.0</span>
+                        </div>
+                        <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{MOCK_HOTEL.name}</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                          <Icon name="map-pin" size={14} color="#E05A47" /> {MOCK_HOTEL.address}
+                        </p>
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                          <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-2xl">
+                            <span className="text-[10px] text-slate-400 block font-semibold">Check-in</span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{MOCK_HOTEL.checkIn}</span>
+                          </div>
+                          <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-2xl">
+                            <span className="text-[10px] text-slate-400 block font-semibold">Check-out</span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{MOCK_HOTEL.checkOut}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          {MOCK_HOTEL.amenities.map((item, idx) => (
+                            <span key={idx} className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs px-2.5 py-1 rounded-lg">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-col justify-between items-stretch lg:w-72 bg-slate-50 dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <div>
+                          <span className="text-xs text-slate-400 block">Código de Reserva</span>
+                          <span className="text-lg font-black text-[#E05A47] block tracking-wide mb-3">{MOCK_HOTEL.confirmationCode}</span>
+                          <span className="text-xs text-slate-400 block">Telefone</span>
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-4">{MOCK_HOTEL.phone}</span>
+                        </div>
+                        <button
+                          onClick={() => openExternalMap(MOCK_HOTEL.lat, MOCK_HOTEL.lng, MOCK_HOTEL.name)}
+                          className="w-full py-3 bg-[#E05A47] hover:bg-[#c94b3a] text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Icon name="navigation" size={14} color="#FFFFFF" /> NAVEGAR PARA O HOTEL
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'itinerary' && (
+                <div className="space-y-6">
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {[
+                      { day: 1, date: '01 Out (Quinta)', label: 'Chegada & Toulouse' },
+                      { day: 2, date: '02 Out (Sexta)', label: 'Excursão Carcassonne' },
+                      { day: 3, date: '03 Out (Sábado)', label: 'Excursão Albi & Cordes' },
+                      { day: 4, date: '04 Out (Domingo)', label: 'Mercado & Regresso' },
+                    ].map((d) => (
+                      <button
+                        key={d.day}
+                        onClick={() => setSelectedDay(d.day)}
+                        className={`flex-1 min-w-[160px] p-4 rounded-2xl text-left transition-all border ${
+                          selectedDay === d.day
+                            ? 'bg-[#E05A47] text-white border-[#E05A47] shadow-lg scale-102'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        <span className="text-xs font-extrabold opacity-80 block uppercase">Dia {d.day}</span>
+                        <span className="text-base font-bold block">{d.date}</span>
+                        <span className="text-[11px] opacity-90 truncate block mt-1">{d.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-lg border border-slate-100 dark:border-slate-700">
+                    <div className="mb-6 pb-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+                          Agenda do Dia {selectedDay}
+                        </h2>
+                        <p className="text-xs text-slate-400">Todos os horários estão sincronizados no fuso horário francês (CEST)</p>
+                      </div>
+                      <span className="px-3 py-1 bg-rose-50 dark:bg-rose-950/50 text-[#E05A47] text-xs font-bold rounded-full">
+                        {filteredItinerary.length} Eventos
+                      </span>
+                    </div>
+                    <div className="pt-2">
+                      {filteredItinerary.map((item, idx) => (
+                        <TimelineItem
+                          key={item.id}
+                          item={item}
+                          isLast={idx === filteredItinerary.length - 1}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'map' && <MapViewComponent />}
+              {activeTab === 'concierge' && <AIConciergeTab />}
+              {activeTab === 'guide' && <LocalGuideTab />}
+            </main>
+
+            <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-4 py-2 flex items-center justify-around">
+              {[
+                { id: 'dashboard', label: 'Inicio', icon: 'calendar' },
+                { id: 'itinerary', label: 'Agenda', icon: 'clock' },
+                { id: 'map', label: 'Mapa', icon: 'map-pin' },
+                { id: 'concierge', label: 'AI Chat', icon: 'sparkles' },
+                { id: 'guide', label: 'Guia', icon: 'book-open' },
+              ].map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex flex-col items-center py-1 px-2 rounded-xl transition-all ${
+                      isActive ? 'text-[#E05A47] font-bold' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <Icon name={tab.icon} size={20} color={isActive ? '#E05A47' : '#94A3B8'} />
+                    <span className="text-[10px] mt-1">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
